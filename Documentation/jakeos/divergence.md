@@ -24,3 +24,4 @@ fork-only lines touched by the merge.
 | Commit | Class | Series or removal condition | Roadmap task |
 |---|---|---|---|
 | (bootstrap) | fork-only | none | KRN-010 |
+| workflow: upload-artifact v7 | fork-only | none | KRN-010 |
