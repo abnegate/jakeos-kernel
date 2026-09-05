@@ -1,0 +1,14 @@
+# Pinned toolchain for the JakeOS kernel (roadmap decisions D-0165, D-0036).
+# Rule: rustc is at least the Rust-for-Linux minimum of the merged upstream tag
+# and within two releases of current stable; LLVM is the single C and Rust
+# backend; bindgen matches the version upstream tests. CI reads this file.
+[upstream]
+tag = "v7.2"
+rustc_minimum = "1.85.0"
+llvm_minimum = "17.0.1"
+bindgen = "0.71.1"
+
+[pin]
+rustc = "1.97.1"
+llvm = "20"
+bindgen = "0.71.1"

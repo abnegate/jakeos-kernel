@@ -1,0 +1,55 @@
+name: kernel
+
+on:
+  push:
+    branches: [main]
+    tags: ['jakeos-*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read the toolchain pin
+        id: pin
+        run: |
+          rustc="$(sed -n 's/^rustc = "\(.*\)"/\1/p' .jakeos/toolchain.toml | tail -1)"
+          llvm="$(sed -n 's/^llvm = "\(.*\)"/\1/p' .jakeos/toolchain.toml | tail -1)"
+          bindgen="$(sed -n 's/^bindgen = "\(.*\)"/\1/p' .jakeos/toolchain.toml | tail -1)"
+          echo "rustc=$rustc" >> "$GITHUB_OUTPUT"
+          echo "llvm=$llvm" >> "$GITHUB_OUTPUT"
+          echo "bindgen=$bindgen" >> "$GITHUB_OUTPUT"
+      - name: Install LLVM ${{ steps.pin.outputs.llvm }}
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ steps.pin.outputs.llvm }}
+          sudo apt-get install -y --no-install-recommends lld-${{ steps.pin.outputs.llvm }} llvm-${{ steps.pin.outputs.llvm }} clang-${{ steps.pin.outputs.llvm }} libelf-dev libssl-dev bc flex bison cpio kmod
+          echo "/usr/lib/llvm-${{ steps.pin.outputs.llvm }}/bin" >> "$GITHUB_PATH"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.pin.outputs.rustc }}
+          components: rust-src, rustfmt, clippy
+      - name: Install bindgen ${{ steps.pin.outputs.bindgen }}
+        run: cargo install --locked bindgen-cli --version ${{ steps.pin.outputs.bindgen }}
+      - name: Rust availability
+        run: make LLVM=1 rustavailable
+      - name: Configure
+        run: |
+          make LLVM=1 defconfig
+          scripts/config --enable RUST --enable SAMPLES --enable SAMPLES_RUST --enable SAMPLE_RUST_MINIMAL
+          make LLVM=1 olddefconfig
+          grep -E '^CONFIG_RUST=y' .config
+      - name: Build
+        run: make LLVM=1 -j"$(nproc)"
+      - name: Report
+        run: |
+          ls -la arch/x86/boot/bzImage
+          make LLVM=1 -s kernelrelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bzImage-${{ github.sha }}
+          path: arch/x86/boot/bzImage
